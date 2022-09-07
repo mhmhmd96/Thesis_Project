@@ -51,6 +51,9 @@ class GrpcClientProxy(ClientProxy):
         get_properties_res = serde.get_properties_res_from_proto(
             client_msg.get_properties_res
         )
+
+        # Assign the received properties to the variable (properties) of the client
+        self.properties = get_properties_res.properties
         return get_properties_res
 
     def get_parameters(

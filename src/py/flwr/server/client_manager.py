@@ -20,11 +20,15 @@ import threading
 from abc import ABC, abstractmethod
 from logging import INFO
 from typing import Dict, List, Optional
-
 from flwr.common.logger import log
-
 from .client_proxy import ClientProxy
 from .criterion import Criterion
+
+import time
+from flwr.common import GetPropertiesIns
+import statistics
+import numpy
+
 
 
 class ClientManager(ABC):
@@ -135,7 +139,7 @@ class SimpleClientManager(ClientManager):
         available_cids = list(self.clients)
         if criterion is not None:
             available_cids = [
-                cid for cid in available_cids if criterion.select(self.clients[cid])
+                cid for cid in available_cids if criterion.select(self.clients[cid], self.threshold())
             ]
 
         if num_clients > len(available_cids):
@@ -150,3 +154,42 @@ class SimpleClientManager(ClientManager):
 
         sampled_cids = random.sample(available_cids, num_clients)
         return [self.clients[cid] for cid in sampled_cids]
+
+    def threshold(self) -> float:
+        # Define all clients (N')
+        available_cids = list(self.clients)
+
+        # Implement get_properties for all clients to set the properties variable
+        for cid in available_cids:
+            send_time = time.time()
+            ins = GetPropertiesIns(config={'time': send_time})
+            self.clients[cid].get_properties(ins=ins, timeout=None)
+
+        # Collect the IEs of all clients
+        IEs = [self.clients[cid].properties['IE'] for cid in available_cids]
+
+        # Average
+        mean = statistics.mean(IEs)
+        std = statistics.stdev(IEs)
+        # Cube mean
+        cube_mean = 0
+        # Cube mean
+        for cid in available_cids:
+            cube_mean += (self.clients[cid].properties['IE'] - mean) ** 3
+
+        # Symmetry Coefficient
+        symmetry_index = cube_mean / (std ** 3)
+
+        # Get the quartiles of all IEs
+        quartiles = numpy.quantile(IEs, [0.25, 0.5, 0.75, 1])
+        q1 = quartiles[0]
+        q3 = quartiles[2]
+
+        # Define the threshold of each state
+        states = {'symmetric': (mean - std), 'positive_asymmetry': q1, 'negative_asymmetry': (q1 - 1.5 * (q3 - q1))}
+        if symmetry_index > 0.35:
+            return states['positive_asymmetry']
+        elif symmetry_index < -1.2:
+            return states['negative_asymmetry']
+        else:
+            return states['symmetric']

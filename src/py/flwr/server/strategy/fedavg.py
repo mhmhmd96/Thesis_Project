@@ -36,6 +36,7 @@ from flwr.common import (
 from flwr.common.logger import log
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
+from flwr.server.criterion import CriterionImplemented
 
 from .aggregate import aggregate, weighted_loss_avg
 from .strategy import Strategy
@@ -182,7 +183,7 @@ class FedAvg(Strategy):
             client_manager.num_available()
         )
         clients = client_manager.sample(
-            num_clients=sample_size, min_num_clients=min_num_clients
+            num_clients=sample_size, min_num_clients=min_num_clients, criterion=CriterionImplemented()
         )
 
         # Return client/config pairs

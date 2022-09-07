@@ -1,10 +1,9 @@
-import argparse
 import os
-from pathlib import Path
 
 import tensorflow as tf
-
+import time
 import flwr as fl
+import psutil
 
 # Make TensorFlow logs less verbose
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -12,14 +11,38 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 # Define Flower client
 class CifarClient(fl.client.NumPyClient):
-    def __init__(self, model, x_train, y_train, x_test, y_test):
+    def __init__(self, model, x_train, y_train, x_test, y_test, RAM_percent, CPU_percent):
         self.model = model
         self.x_train, self.y_train = x_train, y_train
         self.x_test, self.y_test = x_test, y_test
+        self.RAM_percent = RAM_percent
+        self.CPU_percent = CPU_percent
 
     def get_properties(self, config):
-        """Get properties of client."""
-        raise Exception("Not implemented")
+        receive_time = time.time()
+        send_time = config['time']
+
+        # RAM & CPU
+        RAM_inv = 100 - self.RAM_percent
+        CPU_inv = 100 - self.CPU_percent
+
+        # Delay
+        delay = receive_time - send_time
+        delay_max = 100
+        delay_percent = (delay/delay_max) * 100
+        delay_percent_inv = 100 - delay_percent
+
+        # Weights
+        computational_weight = {'RAM': 0.2, 'CPU': 1}
+        beta= 0
+        alpha = 0.9
+
+        # Computational Index
+        IC = ((RAM_inv * computational_weight['RAM']) + (CPU_inv * computational_weight['CPU'])) / (computational_weight['CPU'] + computational_weight['RAM'])
+
+        evaluation_index = alpha * IC + (1-alpha) * delay_percent_inv
+        print("Evaluation Index: ", evaluation_index)
+        return {'RAM': self.RAM_percent, 'CPU': self.CPU_percent, 'delay': delay, 'IE': evaluation_index}
 
     def get_parameters(self, config):
         """Get parameters of the local model."""
@@ -81,14 +104,17 @@ def main() -> None:
     # Load a subset of CIFAR-10 to simulate the local data partition
     (x_train, y_train), (x_test, y_test) = load_partition(0)
 
+    # Used RAM percentage
+    RAM_percent = psutil.virtual_memory().percent
+    print("RAM Usage: ", RAM_percent, "%")
+    # Used CPU percentage
+    CPU_percent = psutil.cpu_percent(2)  # for 2 seconds
+    print("CPU Usage: ", CPU_percent, "%")
+
     # Start Flower client
-    client = CifarClient(model, x_train, y_train, x_test, y_test)
+    client = CifarClient(model, x_train, y_train, x_test, y_test, RAM_percent, CPU_percent)
 
-    fl.client.start_numpy_client(
-        server_address="localhost:8080",
-        client=client,
-
-    )
+    fl.client.start_numpy_client( server_address="localhost:8080", client=client,)
 
 
 def load_partition(idx: int):

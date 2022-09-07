@@ -1,8 +1,9 @@
 from typing import Dict, Optional, Tuple
-from pathlib import Path
-
 import flwr as fl
 import tensorflow as tf
+import os
+# Make TensorFlow logs less verbose
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 
 def main() -> None:
@@ -16,11 +17,11 @@ def main() -> None:
 
     # Create strategy
     strategy = fl.server.strategy.FedAvg(
-        fraction_fit=0.3,
-        fraction_evaluate=0.2,
-        min_fit_clients=1,
+        fraction_fit=1.0,
+        fraction_evaluate=1.0,
+        min_fit_clients=2,
         min_evaluate_clients=1,
-        min_available_clients=1,
+        min_available_clients=2,
         evaluate_fn=get_evaluate_fn(model),
         on_fit_config_fn=fit_config,
         on_evaluate_config_fn=evaluate_config,
@@ -66,7 +67,7 @@ def fit_config(server_round: int):
     """
     config = {
         "batch_size": 32,
-        "local_epochs": 1 if server_round < 2 else 2,
+        "local_epochs": 1 #if server_round < 2 else 2,
     }
     return config
 
@@ -78,7 +79,7 @@ def evaluate_config(server_round: int):
     batches) during rounds one to three, then increase to ten local
     evaluation steps.
     """
-    val_steps = 5 if server_round < 4 else 10
+    val_steps = 5 #if server_round < 4 else 10
     return {"val_steps": val_steps}
 
 
