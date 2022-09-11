@@ -8,41 +8,32 @@ import psutil
 # Make TensorFlow logs less verbose
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
+# Initialize Parameters
+# Max RAM (GB)
+max_ram = 4
+# Max delay (sec)
+max_delay = 1
+# Cpu Usage Usage Duration (sec)
+cpu_duration = 5
+
 
 # Define Flower client
 class CifarClient(fl.client.NumPyClient):
-    def __init__(self, model, x_train, y_train, x_test, y_test, RAM_percent, CPU_percent):
+    def __init__(self, model, x_train, y_train, x_test, y_test, available_ram, cpu_percent):
         self.model = model
         self.x_train, self.y_train = x_train, y_train
         self.x_test, self.y_test = x_test, y_test
-        self.RAM_percent = RAM_percent
-        self.CPU_percent = CPU_percent
+        self.available_ram = available_ram
+        self.cpu_percent = cpu_percent
 
     def get_properties(self, config):
         receive_time = time.time()
         send_time = config['time']
-
-        # RAM & CPU
-        RAM_inv = 100 - self.RAM_percent
-        CPU_inv = 100 - self.CPU_percent
-
-        # Delay
         delay = receive_time - send_time
-        delay_max = 100
-        delay_percent = (delay/delay_max) * 100
-        delay_percent_inv = 100 - delay_percent
-
-        # Weights
-        computational_weight = {'RAM': 0.2, 'CPU': 1}
-        beta= 0
-        alpha = 0.9
-
-        # Computational Index
-        IC = ((RAM_inv * computational_weight['RAM']) + (CPU_inv * computational_weight['CPU'])) / (computational_weight['CPU'] + computational_weight['RAM'])
-
-        evaluation_index = alpha * IC + (1-alpha) * delay_percent_inv
+        print("Delay: ", delay)
+        evaluation_index = get_eval_index(self.available_ram, self.cpu_percent, delay)
         print("Evaluation Index: ", evaluation_index)
-        return {'RAM': self.RAM_percent, 'CPU': self.CPU_percent, 'delay': delay, 'IE': evaluation_index}
+        return {'RAM': self.available_ram, 'CPU': self.cpu_percent, 'delay': delay, 'IE': evaluation_index}
 
     def get_parameters(self, config):
         """Get parameters of the local model."""
@@ -93,6 +84,30 @@ class CifarClient(fl.client.NumPyClient):
         return loss, num_examples_test, {"accuracy": accuracy}
 
 
+def get_eval_index(ram, cpu, delay):
+    delay_percent = (delay / max_delay) * 100
+    delay_percent_inv = 100 - delay_percent
+
+    # RAM & CPU
+
+    # Get RAM in GB
+    ram_gb = ram / 1e+9
+
+    # Normalized RAM and CPU
+    ram_available = (ram_gb / max_ram) * 100
+    cpu_available = 100 - cpu
+
+    # Weights
+    computational_weight = {'RAM': 0.2, 'CPU': 1}
+    beta = 0
+    alpha = 0.9
+
+    # Computational Index
+    IC = ((ram_available * computational_weight['RAM']) + (cpu_available * computational_weight['CPU'])) / (computational_weight['CPU'] + computational_weight['RAM'])
+    evaluation_index = alpha * IC + (1-alpha) * delay_percent_inv
+    return evaluation_index
+
+
 def main() -> None:
 
     # Load and compile Keras model
@@ -105,14 +120,14 @@ def main() -> None:
     (x_train, y_train), (x_test, y_test) = load_partition(0)
 
     # Used RAM percentage
-    RAM_percent = psutil.virtual_memory().percent
-    print("RAM Usage: ", RAM_percent, "%")
+    available_ram = psutil.virtual_memory().available
+    print("RAM Available: ", available_ram / 1e+9 , "GB")
     # Used CPU percentage
-    CPU_percent = psutil.cpu_percent(2)  # for 2 seconds
-    print("CPU Usage: ", CPU_percent, "%")
+    available_cpu = psutil.cpu_percent(cpu_duration)
+    print("CPU Usage: ", available_cpu, "%")
 
     # Start Flower client
-    client = CifarClient(model, x_train, y_train, x_test, y_test, RAM_percent, CPU_percent)
+    client = CifarClient(model, x_train, y_train, x_test, y_test, available_ram, available_cpu)
 
     fl.client.start_numpy_client( server_address="localhost:8080", client=client,)
 

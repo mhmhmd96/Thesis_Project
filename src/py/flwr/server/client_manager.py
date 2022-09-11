@@ -168,12 +168,11 @@ class SimpleClientManager(ClientManager):
         # Collect the IEs of all clients
         IEs = [self.clients[cid].properties['IE'] for cid in available_cids]
 
-        # Average
+        # Average and Standard Deviation
         mean = statistics.mean(IEs)
         std = statistics.stdev(IEs)
         # Cube mean
         cube_mean = 0
-        # Cube mean
         for cid in available_cids:
             cube_mean += (self.clients[cid].properties['IE'] - mean) ** 3
 
