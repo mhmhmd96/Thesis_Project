@@ -137,9 +137,10 @@ class SimpleClientManager(ClientManager):
         self.wait_for(min_num_clients)
         # Sample clients which meet the criterion
         available_cids = list(self.clients)
+        threshold = self.threshold()
         if criterion is not None:
             available_cids = [
-                cid for cid in available_cids if criterion.select(self.clients[cid], self.threshold())
+                cid for cid in available_cids if criterion.select(self.clients[cid], threshold)
             ]
 
         if num_clients > len(available_cids):
@@ -158,7 +159,7 @@ class SimpleClientManager(ClientManager):
     def threshold(self) -> float:
         # Define all clients (N')
         available_cids = list(self.clients)
-
+        print("Available Clients: ", available_cids)
         # Implement get_properties for all clients to set the properties variable
         for cid in available_cids:
             send_time = time.time()
@@ -173,8 +174,8 @@ class SimpleClientManager(ClientManager):
         std = statistics.stdev(IEs)
         # Cube mean
         cube_mean = 0
-        for cid in available_cids:
-            cube_mean += (self.clients[cid].properties['IE'] - mean) ** 3
+        for i in IEs:
+            cube_mean += (i - mean) ** 3
 
         # Symmetry Coefficient
         symmetry_index = cube_mean / (std ** 3)
@@ -187,8 +188,10 @@ class SimpleClientManager(ClientManager):
         # Define the threshold of each state
         states = {'symmetric': (mean - std), 'positive_asymmetry': q1, 'negative_asymmetry': (q1 - 1.5 * (q3 - q1))}
         if symmetry_index > 0.35:
-            return states['positive_asymmetry']
+            threshold = states['positive_asymmetry']
         elif symmetry_index < -1.2:
-            return states['negative_asymmetry']
+            threshold = states['negative_asymmetry']
         else:
-            return states['symmetric']
+            threshold = states['symmetric']
+        print("Threshold: ", threshold)
+        return threshold

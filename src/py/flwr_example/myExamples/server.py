@@ -17,11 +17,11 @@ def main() -> None:
 
     # Create strategy
     strategy = fl.server.strategy.FedAvg(
-        fraction_fit=1.0,
-        fraction_evaluate=1.0,
-        min_fit_clients=2,
+        fraction_fit=0.75,
+        fraction_evaluate=0.5,
+        min_fit_clients=3,
         min_evaluate_clients=1,
-        min_available_clients=2,
+        min_available_clients=4,
         evaluate_fn=get_evaluate_fn(model),
         on_fit_config_fn=fit_config,
         on_evaluate_config_fn=evaluate_config,
@@ -30,7 +30,7 @@ def main() -> None:
 
     # Start Flower server (SSL-enabled) for four rounds of federated learning
     fl.server.start_server(
-        server_address="localhost:8080",
+        server_address="192.168.122.105:5555",
         config=fl.server.ServerConfig(num_rounds=4),
         strategy=strategy,
 

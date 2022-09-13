@@ -92,10 +92,11 @@ def get_eval_index(ram, cpu, delay):
 
     # Get RAM in GB
     ram_gb = ram / 1e+9
+    cpu_percentage = cpu/psutil.cpu_count()
 
     # Normalized RAM and CPU
     ram_available = (ram_gb / max_ram) * 100
-    cpu_available = 100 - cpu
+    cpu_available = 100 - cpu_percentage
 
     # Weights
     computational_weight = {'RAM': 0.2, 'CPU': 1}
@@ -129,7 +130,7 @@ def main() -> None:
     # Start Flower client
     client = CifarClient(model, x_train, y_train, x_test, y_test, available_ram, available_cpu)
 
-    fl.client.start_numpy_client( server_address="localhost:8080", client=client,)
+    fl.client.start_numpy_client( server_address="192.168.122.105:5555", client=client,)
 
 
 def load_partition(idx: int):

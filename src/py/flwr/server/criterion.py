@@ -34,7 +34,6 @@ class Criterion(ABC):
 class CriterionImplemented (Criterion):
     def select(self, client: ClientProxy, threshold: float) -> bool:
         """Decide whether a client should be eligible for sampling or not."""
-        print('Threshold: ', threshold)
         if client.properties['IE'] > threshold:
             log(INFO, 'A device is sampled, IE: ' + str(client.properties['IE']) + ' > ' + 'Threshold: '+str(threshold))
             return True
