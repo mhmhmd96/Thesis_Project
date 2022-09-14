@@ -56,6 +56,7 @@ class FedAvg(Strategy):
     def __init__(
         self,
         *,
+        selection_strategy: bool = False,
         fraction_fit: float = 1.0,
         fraction_evaluate: float = 1.0,
         min_fit_clients: int = 2,
@@ -117,7 +118,7 @@ class FedAvg(Strategy):
             or min_evaluate_clients > min_available_clients
         ):
             log(WARNING, WARNING_MIN_AVAILABLE_CLIENTS_TOO_LOW)
-
+        self.selection_strategy = selection_strategy
         self.fraction_fit = fraction_fit
         self.fraction_evaluate = fraction_evaluate
         self.min_fit_clients = min_fit_clients
@@ -182,9 +183,14 @@ class FedAvg(Strategy):
         sample_size, min_num_clients = self.num_fit_clients(
             client_manager.num_available()
         )
-        clients = client_manager.sample(
-            num_clients=sample_size, min_num_clients=min_num_clients, criterion=CriterionImplemented()
-        )
+        if self.selection_strategy:
+            clients = client_manager.sample(
+                num_clients=sample_size, min_num_clients=min_num_clients, criterion=CriterionImplemented()
+            )
+        else:
+            clients = client_manager.sample(
+                num_clients=sample_size, min_num_clients=min_num_clients, criterion=None
+            )
 
         # Return client/config pairs
         return [(client, fit_ins) for client in clients]
