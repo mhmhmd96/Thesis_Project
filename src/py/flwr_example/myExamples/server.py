@@ -5,7 +5,7 @@ import os
 # Make TensorFlow logs less verbose
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
-
+use_selection_strategy = False
 def main() -> None:
     # Load and compile model for
     # 1. server-side parameter initialization
@@ -17,7 +17,7 @@ def main() -> None:
 
     # Create strategy
     strategy = fl.server.strategy.FedAvg(
-        selection_strategy = False,
+        selection_strategy = use_selection_strategy,
         fraction_fit=0.75,
         fraction_evaluate=0.5,
         min_fit_clients=3,
