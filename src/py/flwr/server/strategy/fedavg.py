@@ -18,8 +18,10 @@ Paper: https://arxiv.org/abs/1602.05629
 """
 
 
-from logging import WARNING
+from logging import WARNING, INFO
 from typing import Callable, Dict, List, Optional, Tuple, Union
+import time
+
 
 from flwr.common import (
     EvaluateIns,
@@ -47,7 +49,8 @@ Setting `min_available_clients` lower than `min_fit_clients` or
 connected to the server. `min_available_clients` must be set to a value larger
 than or equal to the values of `min_fit_clients` and `min_evaluate_clients`.
 """
-
+start_time = 0
+global start_time
 
 class FedAvg(Strategy):
     """Configurable FedAvg strategy implementation."""
@@ -173,6 +176,8 @@ class FedAvg(Strategy):
         self, server_round: int, parameters: Parameters, client_manager: ClientManager
     ) -> List[Tuple[ClientProxy, FitIns]]:
         """Configure the next round of training."""
+        # Fit round start time
+        start_time = time.time()
         config = {}
         if self.on_fit_config_fn is not None:
             # Custom fit config function provided
@@ -228,6 +233,7 @@ class FedAvg(Strategy):
         failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
         """Aggregate fit results using weighted average."""
+
         if not results:
             return None, {}
         # Do not aggregate if there are failures and failures are not accepted
@@ -248,7 +254,10 @@ class FedAvg(Strategy):
             metrics_aggregated = self.fit_metrics_aggregation_fn(fit_metrics)
         elif server_round == 1:  # Only log this warning once
             log(WARNING, "No fit_metrics_aggregation_fn provided")
-
+        # Fit round time
+        finish_time = time.time()
+        round_time = finish_time - start_time
+        log(INFO, "Round " + str(server_round)+" time: " + str(round_time))
         return parameters_aggregated, metrics_aggregated
 
     def aggregate_evaluate(
