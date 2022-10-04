@@ -1,12 +1,12 @@
 import os
-
+# Make TensorFlow logs less verbose
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 import tensorflow as tf
 import time
 import flwr as fl
 import psutil
 
-# Make TensorFlow logs less verbose
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
 
 # Initialize Parameters
 # Max RAM (GB)
@@ -112,9 +112,9 @@ def get_eval_index(ram, cpu, delay):
 def main() -> None:
 
     # Load and compile Keras model
-    model = tf.keras.applications.EfficientNetB0(
-        input_shape=(32, 32, 3), weights=None, classes=10
-    )
+    model = tf.keras.applications.mobilenet_v2.MobileNetV2(
+    input_shape=(32, 32, 3), weights=None, classes=10)
+
     model.compile("adam", "sparse_categorical_crossentropy", metrics=["accuracy"])
 
     # Load a subset of CIFAR-10 to simulate the local data partition
@@ -130,7 +130,7 @@ def main() -> None:
     # Start Flower client
     client = CifarClient(model, x_train, y_train, x_test, y_test, available_ram, available_cpu)
 
-    fl.client.start_numpy_client( server_address="192.168.122.105:5555", client=client,)
+    fl.client.start_numpy_client( server_address="localhost:5555", client=client,)
 
 
 def load_partition(idx: int):

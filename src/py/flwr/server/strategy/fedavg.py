@@ -49,11 +49,13 @@ Setting `min_available_clients` lower than `min_fit_clients` or
 connected to the server. `min_available_clients` must be set to a value larger
 than or equal to the values of `min_fit_clients` and `min_evaluate_clients`.
 """
-start_time = 0
-global start_time
+
+
 
 class FedAvg(Strategy):
     """Configurable FedAvg strategy implementation."""
+    global start_time
+    start_time = 0
 
     # pylint: disable=too-many-arguments,too-many-instance-attributes
     def __init__(
