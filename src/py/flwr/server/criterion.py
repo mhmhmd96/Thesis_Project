@@ -32,11 +32,14 @@ class Criterion(ABC):
 
 
 class CriterionImplemented (Criterion):
-    def select(self, client: ClientProxy, threshold: float) -> bool:
+    def select(self, client: ClientProxy, client_cid, sorted_clients) -> bool:
         """Decide whether a client should be eligible for sampling or not."""
-        if client.properties['IE'] > threshold:
-            log(INFO, 'A device is sampled, IE: ' + str(client.properties['IE']) + ' > ' + 'Threshold: '+str(threshold))
+        sorted_cids = []
+        for i in sorted_clients:
+            sorted_cids.append(i[0])
+        if client_cid in sorted_cids:
+            log(INFO, 'A device is sampled, Delay: ' + str(client.properties['delay']))
             return True
 
-        log(INFO, 'A device was not sampled, IE: ' + str(client.properties['IE']) + ' < ' + 'Threshold: '+str(threshold))
+        log(INFO, 'A device was not sampled, Delay: ' + str(client.properties['delay']))
         return False

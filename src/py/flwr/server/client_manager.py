@@ -30,7 +30,7 @@ import statistics
 import numpy
 
 
-
+number_of_clients = 1
 class ClientManager(ABC):
     """Abstract base class for managing Flower clients."""
 
@@ -137,10 +137,10 @@ class SimpleClientManager(ClientManager):
         self.wait_for(min_num_clients)
         # Sample clients which meet the criterion
         available_cids = list(self.clients)
-        threshold = self.threshold()
+        sorted_cleint = self.sort_clients()
         if criterion is not None:
             available_cids = [
-                cid for cid in available_cids if criterion.select(self.clients[cid], threshold)
+                cid for cid in available_cids if criterion.select(self.clients[cid], cid, sorted_cleint)
             ]
 
         if num_clients > len(available_cids):
@@ -156,42 +156,22 @@ class SimpleClientManager(ClientManager):
         sampled_cids = random.sample(available_cids, num_clients)
         return [self.clients[cid] for cid in sampled_cids]
 
-    def threshold(self) -> float:
+    def sort_clients(self) -> float:
         # Define all clients (N')
         available_cids = list(self.clients)
         print("Available Clients: ", available_cids)
         # Implement get_properties for all clients to set the properties variable
         for cid in available_cids:
-            send_time = time.time()
-            ins = GetPropertiesIns(config={'time': send_time})
+            #send_time = time.time()
+            ins = GetPropertiesIns(config={})
             self.clients[cid].get_properties(ins=ins, timeout=None)
 
-        # Collect the IEs of all clients
-        IEs = [self.clients[cid].properties['IE'] for cid in available_cids]
+        # Collect the delay of all clients
+        delays = {cid : self.clients[cid].properties['delay'] for cid in available_cids}
+        # List of delays sorted asceding
+        delays = sorted(delays.items(), key=lambda x: x[1])
+        # Return the best number_of_clients of delays
+        sorted_clients = delays[:number_of_clients]
 
-        # Average and Standard Deviation
-        mean = statistics.mean(IEs)
-        std = statistics.stdev(IEs)
-        # Cube mean
-        cube_mean = 0
-        for i in IEs:
-            cube_mean += (i - mean) ** 3
+        return sorted_clients
 
-        # Symmetry Coefficient
-        symmetry_index = cube_mean / (std ** 3)
-
-        # Get the quartiles of all IEs
-        quartiles = numpy.quantile(IEs, [0.25, 0.5, 0.75, 1])
-        q1 = quartiles[0]
-        q3 = quartiles[2]
-
-        # Define the threshold of each state
-        states = {'symmetric': (mean - std), 'positive_asymmetry': q1, 'negative_asymmetry': (q1 - 1.5 * (q3 - q1))}
-        if symmetry_index > 0.35:
-            threshold = states['positive_asymmetry']
-        elif symmetry_index < -1.2:
-            threshold = states['negative_asymmetry']
-        else:
-            threshold = states['symmetric']
-        print("Threshold: ", threshold)
-        return threshold

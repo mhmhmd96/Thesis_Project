@@ -54,13 +54,13 @@ than or equal to the values of `min_fit_clients` and `min_evaluate_clients`.
 
 class FedAvg(Strategy):
     """Configurable FedAvg strategy implementation."""
-    global start_time
-    start_time = 0
 
     # pylint: disable=too-many-arguments,too-many-instance-attributes
     def __init__(
         self,
         *,
+        start_time: float = 0.0,
+        finsih_time: float = 0.0 ,
         selection_strategy: bool = False,
         fraction_fit: float = 1.0,
         fraction_evaluate: float = 1.0,
@@ -179,7 +179,7 @@ class FedAvg(Strategy):
     ) -> List[Tuple[ClientProxy, FitIns]]:
         """Configure the next round of training."""
         # Fit round start time
-        start_time = time.time()
+        self.start_time = time.time()
         config = {}
         if self.on_fit_config_fn is not None:
             # Custom fit config function provided
@@ -257,8 +257,8 @@ class FedAvg(Strategy):
         elif server_round == 1:  # Only log this warning once
             log(WARNING, "No fit_metrics_aggregation_fn provided")
         # Fit round time
-        finish_time = time.time()
-        round_time = finish_time - start_time
+        self.finish_time = time.time()
+        round_time = self.finish_time - self.start_time
         log(INFO, "Round " + str(server_round)+" time: " + str(round_time))
         return parameters_aggregated, metrics_aggregated
 

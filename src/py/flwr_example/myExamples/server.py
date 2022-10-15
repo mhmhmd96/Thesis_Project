@@ -1,9 +1,11 @@
 from typing import Dict, Optional, Tuple
-import flwr as fl
-import tensorflow as tf
 import os
 # Make TensorFlow logs less verbose
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+import flwr as fl
+import tensorflow as tf
+
+
 
 use_selection_strategy = False
 def main() -> None:
@@ -18,10 +20,10 @@ def main() -> None:
     strategy = fl.server.strategy.FedAvg(
         selection_strategy = use_selection_strategy,
         fraction_fit=1.0,
-        fraction_evaluate=1.0,
-        min_fit_clients=2,
-        min_evaluate_clients=2,
-        min_available_clients=2,
+        fraction_evaluate=0.75,
+        min_fit_clients=6,
+        min_evaluate_clients=4,
+        min_available_clients=6,
         evaluate_fn=get_evaluate_fn(model),
         on_fit_config_fn=fit_config,
         on_evaluate_config_fn=evaluate_config,
@@ -30,7 +32,7 @@ def main() -> None:
 
     # Start Flower server (SSL-enabled) for four rounds of federated learning
     fl.server.start_server(
-        server_address="localhost:5555",
+        server_address="192.168.122.107:5555",
         config=fl.server.ServerConfig(num_rounds=4),
         strategy=strategy,
 
@@ -41,10 +43,10 @@ def get_evaluate_fn(model):
     """Return an evaluation function for server-side evaluation."""
 
     # Load data and model here to avoid the overhead of doing it in `evaluate` itself
-    (x_train, y_train), _ = tf.keras.datasets.cifar10.load_data()
+    _, (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
 
     # Use the last 5k training examples as a validation set
-    x_val, y_val = x_train[45000:50000], y_train[45000:50000]
+    x_val, y_val = x_test, y_test
 
     # The `evaluate` function will be called after every round
     def evaluate(
@@ -67,7 +69,7 @@ def fit_config(server_round: int):
     """
     config = {
         "batch_size": 32,
-        "local_epochs": 1 #if server_round < 2 else 2,
+        "local_epochs": 2 #if server_round < 2 else 2,
     }
     return config
 
@@ -79,7 +81,7 @@ def evaluate_config(server_round: int):
     batches) during rounds one to three, then increase to ten local
     evaluation steps.
     """
-    val_steps = 5 #if server_round < 4 else 10
+    val_steps = 20 #if server_round < 4 else 10
     return {"val_steps": val_steps}
 
 

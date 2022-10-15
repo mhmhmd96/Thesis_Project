@@ -1,39 +1,31 @@
+import math
 import os
 # Make TensorFlow logs less verbose
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 import tensorflow as tf
-import time
 import flwr as fl
-import psutil
+from pythonping import ping
+from threading import Thread
 
+ping_count = 1000
 
-
-# Initialize Parameters
-# Max RAM (GB)
-max_ram = 4
-# Max delay (sec)
-max_delay = 1
-# Cpu Usage Usage Duration (sec)
-cpu_duration = 5
 
 
 # Define Flower client
 class CifarClient(fl.client.NumPyClient):
-    def __init__(self, model, x_train, y_train, x_test, y_test, available_ram, cpu_percent):
+    def __init__(self, model, x_train, y_train, x_test, y_test, delay):
         self.model = model
         self.x_train, self.y_train = x_train, y_train
         self.x_test, self.y_test = x_test, y_test
-        self.available_ram = available_ram
-        self.cpu_percent = cpu_percent
-
+        #self.available_ram = available_ram
+        #self.cpu_percent = cpu_percent
+        #self.cpu_count = cpu_count
+        self.delay = delay
     def get_properties(self, config):
-        receive_time = time.time()
-        send_time = config['time']
-        delay = receive_time - send_time
-        print("Delay: ", delay)
-        evaluation_index = get_eval_index(self.available_ram, self.cpu_percent, delay)
-        print("Evaluation Index: ", evaluation_index)
-        return {'RAM': self.available_ram, 'CPU': self.cpu_percent, 'delay': delay, 'IE': evaluation_index}
+        print("Delay: ", self.delay)
+        #evaluation_index = get_eval_index(self.available_ram, self.cpu_percent, self.cpu_count, self.delay)
+        #print("Evaluation Index: ", evaluation_index)
+        return {'delay': self.delay}
 
     def get_parameters(self, config):
         """Get parameters of the local model."""
@@ -41,7 +33,9 @@ class CifarClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         """Train parameters on the locally held training set."""
-
+        th = Thread(target=self.ping_host1, args=())
+        th.start()
+        #print('Delay: ', self.delay)
         # Update local model parameters
         self.model.set_weights(parameters)
 
@@ -55,7 +49,7 @@ class CifarClient(fl.client.NumPyClient):
             self.y_train,
             batch_size,
             epochs,
-            validation_split=0.1,
+            validation_split=0.2,
         )
 
         # Return updated model parameters and results
@@ -83,33 +77,20 @@ class CifarClient(fl.client.NumPyClient):
         num_examples_test = len(self.x_test)
         return loss, num_examples_test, {"accuracy": accuracy}
 
+    def ping_host1(self):
+        ping_result = ping(target='localhost', count=ping_count, timeout=2)
+        #print(ping_result)
+        self.delay = ping_result.rtt_avg_ms
 
-def get_eval_index(ram, cpu, delay):
-    delay_percent = (delay / max_delay) * 100
-    delay_percent_inv = 100 - delay_percent
 
-    # RAM & CPU
 
-    # Get RAM in GB
-    ram_gb = ram / 1e+9
-    cpu_percentage = cpu/psutil.cpu_count()
-
-    # Normalized RAM and CPU
-    ram_available = (ram_gb / max_ram) * 100
-    cpu_available = 100 - cpu_percentage
-
-    # Weights
-    computational_weight = {'RAM': 0.2, 'CPU': 1}
-    beta = 0
-    alpha = 0.9
-
-    # Computational Index
-    IC = ((ram_available * computational_weight['RAM']) + (cpu_available * computational_weight['CPU'])) / (computational_weight['CPU'] + computational_weight['RAM'])
-    evaluation_index = alpha * IC + (1-alpha) * delay_percent_inv
-    return evaluation_index
-
+def ping_host():
+    ping_result = ping(target='localhost', count=40, timeout=2)
+    #print(ping_result)
+    return ping_result.rtt_avg_ms
 
 def main() -> None:
+    delay = ping_host()
 
     # Load and compile Keras model
     model = tf.keras.applications.mobilenet_v2.MobileNetV2(
@@ -121,29 +102,33 @@ def main() -> None:
     (x_train, y_train), (x_test, y_test) = load_partition(0)
 
     # Used RAM percentage
-    available_ram = psutil.virtual_memory().available
-    print("RAM Available: ", available_ram / 1e+9 , "GB")
+    #available_ram = psutil.virtual_memory().available
+    #print("RAM Available: ", available_ram / 1e+9, "GB")
     # Used CPU percentage
-    available_cpu = psutil.cpu_percent(cpu_duration)
-    print("CPU Usage: ", available_cpu, "%")
+    #available_cpu = psutil.cpu_percent(cpu_duration)
+    #cpu_count = psutil.cpu_count()
+    #print("CPU Usage: ", available_cpu, "%")
 
     # Start Flower client
-    client = CifarClient(model, x_train, y_train, x_test, y_test, available_ram, available_cpu)
+    client = CifarClient(model, x_train, y_train, x_test, y_test, delay)
 
-    fl.client.start_numpy_client( server_address="localhost:5555", client=client,)
+    fl.client.start_numpy_client(server_address="localhost:5555", client=client,)
 
 
 def load_partition(idx: int):
     """Load 1/10th of the training and test data to simulate a partition."""
     assert idx in range(10)
+    train_size = math.floor(50000 / 6)
+    test_size = math.floor(10000 / 6)
     (x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
     return (
-        x_train[idx * 5000 : (idx + 1) * 5000],
-        y_train[idx * 5000 : (idx + 1) * 5000],
+        x_train[idx * train_size : (idx + 1) * train_size],
+        y_train[idx * train_size : (idx + 1) * train_size],
     ), (
-        x_test[idx * 1000 : (idx + 1) * 1000],
-        y_test[idx * 1000 : (idx + 1) * 1000],
+        x_test[idx * test_size : (idx + 1) * test_size],
+        y_test[idx * test_size : (idx + 1) * test_size],
     )
+
 
 
 if __name__ == "__main__":
