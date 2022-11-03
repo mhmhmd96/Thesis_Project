@@ -21,8 +21,8 @@ Paper: https://arxiv.org/abs/1602.05629
 from logging import WARNING, INFO
 from typing import Callable, Dict, List, Optional, Tuple, Union
 import time
-
-
+from time import sleep
+import socket
 from flwr.common import (
     EvaluateIns,
     EvaluateRes,
@@ -43,6 +43,7 @@ from flwr.server.criterion import CriterionImplemented
 from .aggregate import aggregate, weighted_loss_avg
 from .strategy import Strategy
 
+
 WARNING_MIN_AVAILABLE_CLIENTS_TOO_LOW = """
 Setting `min_available_clients` lower than `min_fit_clients` or
 `min_evaluate_clients` can cause the server to fail when there are too few clients
@@ -50,6 +51,11 @@ connected to the server. `min_available_clients` must be set to a value larger
 than or equal to the values of `min_fit_clients` and `min_evaluate_clients`.
 """
 
+# # Connect to the controller through TCP connection to measure the overhead
+# s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# s.bind(('192.168.122.107', 6665))
+# s.listen(1)
+# conn, addr = s.accept()
 
 
 class FedAvg(Strategy):
@@ -60,7 +66,12 @@ class FedAvg(Strategy):
         self,
         *,
         start_time: float = 0.0,
-        finsih_time: float = 0.0 ,
+        finsih_time: float = 0.0,
+        # s1_cost:dict={},
+        # s2_cost:dict={},
+        # s1_ports:List=[1, 4, 5, 6],
+        # s2_ports:List=[1, 2, 4, 5, 7],
+        # load : float= 0.0,
         selection_strategy: bool = False,
         fraction_fit: float = 1.0,
         fraction_evaluate: float = 1.0,
@@ -136,6 +147,10 @@ class FedAvg(Strategy):
         self.initial_parameters = initial_parameters
         self.fit_metrics_aggregation_fn = fit_metrics_aggregation_fn
         self.evaluate_metrics_aggregation_fn = evaluate_metrics_aggregation_fn
+        # self.s1_cost = s1_cost
+        # self.s2_cost = s2_cost
+        # self.s1_ports  = s1_ports
+        # self.s2_ports = s2_ports
 
     def __repr__(self) -> str:
         rep = f"FedAvg(accept_failures={self.accept_failures})"
@@ -180,6 +195,9 @@ class FedAvg(Strategy):
         """Configure the next round of training."""
         # Fit round start time
         self.start_time = time.time()
+        # if server_round==2:
+        #     msg = 'True::' + str(server_round)
+        #     conn.sendall(msg.encode())
         config = {}
         if self.on_fit_config_fn is not None:
             # Custom fit config function provided
@@ -207,6 +225,7 @@ class FedAvg(Strategy):
     ) -> List[Tuple[ClientProxy, EvaluateIns]]:
         """Configure the next round of evaluation."""
         # Do not configure federated evaluation if fraction eval is 0.
+
         if self.fraction_evaluate == 0.0:
             return []
 
@@ -290,5 +309,12 @@ class FedAvg(Strategy):
             metrics_aggregated = self.evaluate_metrics_aggregation_fn(eval_metrics)
         elif server_round == 1:  # Only log this warning once
             log(WARNING, "No evaluate_metrics_aggregation_fn provided")
+        # if server_round==3:
+        #     msg = 'False::' + str(server_round)
+        #     conn.sendall(msg.encode())
+        #     sleep(1)
 
+        # if server_round==10:
+        #     conn.close()
         return loss_aggregated, metrics_aggregated
+

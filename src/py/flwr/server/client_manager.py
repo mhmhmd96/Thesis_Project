@@ -30,7 +30,7 @@ import statistics
 import numpy
 
 
-number_of_clients = 1
+number_of_clients = 6
 class ClientManager(ABC):
     """Abstract base class for managing Flower clients."""
 
@@ -137,6 +137,7 @@ class SimpleClientManager(ClientManager):
         self.wait_for(min_num_clients)
         # Sample clients which meet the criterion
         available_cids = list(self.clients)
+        #print("Available Clients: ", available_cids)
         sorted_cleint = self.sort_clients()
         if criterion is not None:
             available_cids = [
@@ -168,6 +169,9 @@ class SimpleClientManager(ClientManager):
 
         # Collect the delay of all clients
         delays = {cid : self.clients[cid].properties['delay'] for cid in available_cids}
+        # for k, v in delays.items():
+        #     if not v:
+        #         delays[k] = self.clients[k].properties['delay']
         # List of delays sorted asceding
         delays = sorted(delays.items(), key=lambda x: x[1])
         # Return the best number_of_clients of delays
