@@ -129,7 +129,7 @@ def start_client(
     >>> )
     """
     while True:
-        sleep_duration: int = 0
+        sleep_duration: int = 1
         with grpc_connection(
             server_address,
             max_message_length=grpc_max_message_length,

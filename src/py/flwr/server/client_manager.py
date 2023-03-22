@@ -27,10 +27,14 @@ from .criterion import Criterion
 import time
 from flwr.common import GetPropertiesIns
 import statistics
+import random
 import numpy
 
 
 number_of_clients = 6
+#0: sort, 1: hetergenous, 2: random ,3: normal (c1,c2,c5,c6,c7,c8)
+selcectType = 0
+
 class ClientManager(ABC):
     """Abstract base class for managing Flower clients."""
 
@@ -106,7 +110,6 @@ class SimpleClientManager(ClientManager):
         self.clients[client.cid] = client
         with self._cv:
             self._cv.notify_all()
-
         return True
 
     def unregister(self, client: ClientProxy) -> None:
@@ -129,6 +132,8 @@ class SimpleClientManager(ClientManager):
         num_clients: int,
         min_num_clients: Optional[int] = None,
         criterion: Optional[Criterion] = None,
+        type: str = 'fit',
+
     ) -> List[ClientProxy]:
         """Sample a number of Flower ClientProxy instances."""
         # Block until at least num_clients are connected.
@@ -137,12 +142,37 @@ class SimpleClientManager(ClientManager):
         self.wait_for(min_num_clients)
         # Sample clients which meet the criterion
         available_cids = list(self.clients)
-        #print("Available Clients: ", available_cids)
-        sorted_cleint = self.sort_clients()
+
+        sorted_cids = []
+        print("Available Clients: ", available_cids)
         if criterion is not None:
-            available_cids = [
-                cid for cid in available_cids if criterion.select(self.clients[cid], cid, sorted_cleint)
-            ]
+            if selcectType== 0:
+                sorted_cleint = self.sort_clients(available_cids, min_num_clients)
+                for i in sorted_cleint:
+                    sorted_cids.append(i[0])
+                available_cids = [
+                    cid for cid in available_cids if criterion.select(self.clients[cid], cid,sorted_cids, selcectType, type)
+                ]
+            elif selcectType== 1:
+                sorted_cleint = self.heter_clients(available_cids, min_num_clients)
+                for i in sorted_cleint:
+                    sorted_cids.append(i[0])
+                available_cids = [
+                    cid for cid in available_cids if criterion.select(self.clients[cid], cid, sorted_cids, selcectType, type)
+                ]
+            elif selcectType== 2:
+                sorted_cleint = self.random_clients(available_cids, min_num_clients)
+                for i in sorted_cleint:
+                    sorted_cids.append(i[0])
+                available_cids = [
+                    cid for cid in available_cids if criterion.select(self.clients[cid], cid, sorted_cids, selcectType, type)
+                ]
+            else:
+                sorted_cleint = self.normal_clients(available_cids)
+                sorted_cids = sorted_cleint
+                available_cids = [
+                    cid for cid in available_cids if criterion.select(self.clients[cid], cid, sorted_cids, selcectType, type)
+                ]
 
         if num_clients > len(available_cids):
             log(
@@ -157,21 +187,16 @@ class SimpleClientManager(ClientManager):
         sampled_cids = random.sample(available_cids, num_clients)
         return [self.clients[cid] for cid in sampled_cids]
 
-    def sort_clients(self) -> float:
-        # Define all clients (N')
-        available_cids = list(self.clients)
-        print("Available Clients: ", available_cids)
+    def sort_clients(self, available_cids, min_clients):
+
         # Implement get_properties for all clients to set the properties variable
         for cid in available_cids:
-            #send_time = time.time()
             ins = GetPropertiesIns(config={})
             self.clients[cid].get_properties(ins=ins, timeout=None)
 
         # Collect the delay of all clients
-        delays = {cid : self.clients[cid].properties['delay'] for cid in available_cids}
-        # for k, v in delays.items():
-        #     if not v:
-        #         delays[k] = self.clients[k].properties['delay']
+        delays = {cid: self.clients[cid].properties['delay'] for cid in available_cids}
+
         # List of delays sorted asceding
         delays = sorted(delays.items(), key=lambda x: x[1])
         # Return the best number_of_clients of delays
@@ -179,3 +204,54 @@ class SimpleClientManager(ClientManager):
 
         return sorted_clients
 
+    def random_clients(self, available_cids, min_clients) :
+
+        # Implement get_properties for all clients to set the properties variable
+        for cid in available_cids:
+            ins = GetPropertiesIns(config={})
+            self.clients[cid].get_properties(ins=ins, timeout=None)
+
+        # Collect the delay of all clients
+        delays = {cid: self.clients[cid].properties['delay'] for cid in available_cids}
+
+        # List of delays sorted asceding
+        delays = sorted(delays.items(), key=lambda x: x[1])
+        # Return the best number_of_clients of delays
+        sorted_clients = random.sample(delays, number_of_clients)
+
+        return sorted_clients
+
+    def normal_clients(self, available_cids) :
+
+        # Implement get_properties for all clients to set the properties variable
+        for cid in available_cids:
+            ins = GetPropertiesIns(config={})
+            self.clients[cid].get_properties(ins=ins, timeout=None)
+
+        sorted_clients = []
+        normal_clients = [8, 112, 53, 167, 219, 153]
+        # Return the best number_of_clients of delays
+        for i in available_cids:
+            client = i.split(":")[1].split(".")[-1]
+            if int(client) in normal_clients:
+                sorted_clients.append(i)
+
+        print('sorted: ', sorted_clients)
+        return sorted_clients
+    def heter_clients(self, available_cids, min_clients):
+
+        # Implement get_properties for all clients to set the properties variable
+        for cid in available_cids:
+            #send_time = time.time()
+            ins = GetPropertiesIns(config={})
+            self.clients[cid].get_properties(ins=ins, timeout=None)
+
+        # Collect the Performance Index of all clients
+        pi = {cid: self.clients[cid].properties['EI'] for cid in available_cids}
+
+        # List of delays sorted asceding
+        eis = sorted(pi.items(), key=lambda x: x[1], reverse=True)
+        # Return the best number_of_clients of delays
+        clients = eis[:number_of_clients]
+
+        return clients

@@ -133,7 +133,7 @@ class GetPropertiesRes:
 class ReconnectIns:
     """ReconnectIns message from server to client."""
 
-    seconds: Optional[int]
+    seconds: int = 2000
 
 
 @dataclass

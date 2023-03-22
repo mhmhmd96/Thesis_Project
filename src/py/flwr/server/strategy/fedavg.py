@@ -210,7 +210,7 @@ class FedAvg(Strategy):
         )
         if self.selection_strategy:
             clients = client_manager.sample(
-                num_clients=sample_size, min_num_clients=min_num_clients, criterion=CriterionImplemented()
+                num_clients=sample_size, min_num_clients=min_num_clients, criterion=CriterionImplemented(), type='fit'
             )
         else:
             clients = client_manager.sample(
@@ -241,7 +241,7 @@ class FedAvg(Strategy):
             client_manager.num_available()
         )
         clients = client_manager.sample(
-            num_clients=sample_size, min_num_clients=min_num_clients
+            num_clients=sample_size, min_num_clients=min_num_clients, criterion=CriterionImplemented(), type='eval'
         )
 
         # Return client/config pairs

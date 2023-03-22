@@ -32,14 +32,38 @@ class Criterion(ABC):
 
 
 class CriterionImplemented (Criterion):
-    def select(self, client: ClientProxy, client_cid, sorted_clients) -> bool:
+    def select(self, client: ClientProxy, client_cid, sorted_clients, Stype, round_type='fit') -> bool:
         """Decide whether a client should be eligible for sampling or not."""
-        sorted_cids = []
-        for i in sorted_clients:
-            sorted_cids.append(i[0])
-        if client_cid in sorted_cids:
-            log(INFO, 'A device is sampled, Delay: ' + str(client.properties['delay']))
-            return True
 
-        log(INFO, 'A device was not sampled, Delay: ' + str(client.properties['delay']))
+        if round_type == 'fit':
+            res = self.select_fit(client, client_cid,sorted_clients,Stype)
+            return res
+        else:
+            res = self.select_evaluate(client, client_cid,sorted_clients,Stype)
+            return res
+
+    def select_fit(self, client: ClientProxy, client_cid, sorted_clients, Stype, round_type='fit'):
+        Ip_client = {'8': 'C1', '112': 'C2', '27': 'C3', '21': 'C4',
+                     '53': 'C5', '167': 'C6', '219': 'C7', '153': 'C8'}
+
+        ip = str(client_cid).split(':')[1].split('.')[-1]
+        if Stype == 2:
+            if client_cid in sorted_clients:
+                log(INFO, Ip_client[ip] + '  is sampled')
+                return True
+
+            log(INFO, Ip_client[ip] + ' is not sampled')
+            return False
+        else:
+            if client_cid in sorted_clients:
+                log(INFO, Ip_client[ip] + '  is sampled, Delay: ' + str(client.properties['delay']))
+                return True
+
+            log(INFO, Ip_client[ip] + ' is not sampled, Delay: ' + str(client.properties['delay']))
+            return False
+
+    def select_evaluate(self, client: ClientProxy, client_cid, sorted_clients, Stype):
+        if client_cid in sorted_clients:
+            return True
         return False
+

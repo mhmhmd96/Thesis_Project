@@ -10,9 +10,12 @@ from tensorflow.keras.optimizers import Adamax
 import flwr as fl
 from pythonping import ping
 from threading import Thread
+from multiprocessing import Process
 import time
+import queue
 
-ping_count = 2000
+q = queue.Queue(maxsize=1)
+ping_count = 20
 
 
 def get_vgg_model():
@@ -72,6 +75,11 @@ class CifarClient(fl.client.NumPyClient):
         # th.start()
         # print('Delay: ', self.delay)
         # Update local model parameters
+        if not q.empty():
+            self.delay = q.get()
+        th = Process(target=self.ping_host1, args=())
+        th.start()
+        self.flag = False
         self.model.set_weights(parameters)
 
         # Get hyperparameters for this round
@@ -96,13 +104,13 @@ class CifarClient(fl.client.NumPyClient):
             "val_loss": history.history["val_loss"][0],
             "val_accuracy": history.history["val_accuracy"][0],
         }
-        th = Thread(target=self.ping_host1, args=())
-        th.start()
-        self.flag = False
         return parameters_prime, num_examples_train, results
 
     def evaluate(self, parameters, config):
         """Evaluate parameters on the locally held test set."""
+        if self.flag:
+            th = Process(target=self.ping_host1, args=())
+            th.start()
 
         # Update local model with global parameters
         self.model.set_weights(parameters)
@@ -112,25 +120,25 @@ class CifarClient(fl.client.NumPyClient):
 
         # Evaluate global model parameters on the local test data and return results
         loss, accuracy = self.model.evaluate(self.x_test, self.y_test, 32, steps=steps)
-        if self.flag:
-            th = Thread(target=self.ping_host1, args=())
-            th.start()
         num_examples_test = len(self.x_test)
         return loss, num_examples_test, {"accuracy": accuracy}
 
     def ping_host1(self):
-        s = time.time()
-        ping_result = ping(target='192.168.122.107', count=ping_count, timeout=5)
-        r = time.time()
-        delay = r - s
-        self.delay = delay
+        i=1
+        max_delay=0
+        while i<=20:
+            ping_result = ping(target='192.168.122.107', count=ping_count, timeout=5)
+            delay = ping_result.rtt_avg_ms
+            if delay > max_delay:
+                max_delay=delay
+            time.sleep(3)
+        q.put(max_delay)
+
 
 
 def ping_host():
-    s = time.time()
     ping_result = ping(target='192.168.122.107', count=ping_count, timeout=5)
-    r = time.time()
-    delay = r - s
+    delay = ping_result.rtt_avg_ms
     return delay
 
 
@@ -146,7 +154,7 @@ def main() -> None:
     # Start Flower client
     client = CifarClient(model, x_train, y_train, x_test, y_test, delay)
 
-    fl.client.start_numpy_client(server_address="192.168.122.107:5555", client=client, )
+    fl.client.start_numpy_client(server_address="192.168.122.107:5555", client=client,)
 
 
 def load_partition(idx: int):

@@ -16,6 +16,7 @@
 
 
 import concurrent.futures
+import time
 import timeit
 from logging import DEBUG, INFO
 from typing import Dict, List, Optional, Tuple, Union
@@ -78,6 +79,7 @@ class Server:
         return self._client_manager
 
     # pylint: disable=too-many-locals
+    #AHMAD: Add timeout time to avoid connection interruption
     def fit(self, num_rounds: int, timeout: Optional[float]) -> History:
         """Run federated averaging for a number of rounds."""
         history = History()
@@ -183,7 +185,8 @@ class Server:
             len(results),
             len(failures),
         )
-
+        if len(failures) > 0:
+            self.disconnect_all_clients(timeout=3)
         # Aggregate the evaluation results
         aggregated_result: Tuple[
             Optional[float],
@@ -233,7 +236,9 @@ class Server:
             len(results),
             len(failures),
         )
-
+        # Disconnect all clients in case of failure, force clients to reconnect
+        if len(failures) > 0:
+            self.disconnect_all_clients(timeout=3)
         # Aggregate training results
         aggregated_result: Tuple[
             Optional[Parameters],
