@@ -220,11 +220,11 @@ def generic_create_grpc_server(  # pylint: disable=too-many-arguments
         ("grpc.keepalive_time_ms", keepalive_time_ms),
         # Setting this to zero will allow sending unlimited keepalive pings in between
         # sending actual data frames.
-        ("grpc.http2.max_pings_without_data", 0),
-        ("grpc.min_reconnect_backoff_ms", 100),
-        ("grpc.max_reconnect_backoff_ms", 1000),
-        ("grpc.keepalive_timeout_ms", 25000),
-        ("grpc.keepalive_permit_without_calls", True),
+        # ("grpc.http2.max_pings_without_data", 0),
+        # ("grpc.min_reconnect_backoff_ms", 100),
+        # ("grpc.max_reconnect_backoff_ms", 1000),
+        # ("grpc.keepalive_timeout_ms", 25000),
+        # ("grpc.keepalive_permit_without_calls", True),
 
     ]
 

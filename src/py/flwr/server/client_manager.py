@@ -33,7 +33,7 @@ import numpy
 
 number_of_clients = 6
 #0: sort, 1: hetergenous, 2: random ,3: normal (c1,c2,c5,c6,c7,c8)
-selcectType = 0
+selcectType = 1
 
 class ClientManager(ABC):
     """Abstract base class for managing Flower clients."""
@@ -151,14 +151,14 @@ class SimpleClientManager(ClientManager):
                 for i in sorted_cleint:
                     sorted_cids.append(i[0])
                 available_cids = [
-                    cid for cid in available_cids if criterion.select(self.clients[cid], cid,sorted_cids, selcectType, type)
+                    cid for cid in available_cids if criterion.select(self.clients[cid], cid, sorted_cids, selcectType, type)
                 ]
             elif selcectType== 1:
-                sorted_cleint = self.heter_clients(available_cids, min_num_clients)
+                sorted_cleint, eis = self.heter_clients(available_cids, min_num_clients)
                 for i in sorted_cleint:
                     sorted_cids.append(i[0])
                 available_cids = [
-                    cid for cid in available_cids if criterion.select(self.clients[cid], cid, sorted_cids, selcectType, type)
+                    cid for cid in available_cids if criterion.select(self.clients[cid], cid, sorted_cids, selcectType, type, eis[cid])
                 ]
             elif selcectType== 2:
                 sorted_cleint = self.random_clients(available_cids, min_num_clients)
@@ -239,7 +239,11 @@ class SimpleClientManager(ClientManager):
         print('sorted: ', sorted_clients)
         return sorted_clients
     def heter_clients(self, available_cids, min_clients):
-
+        alpha = 0.5
+        beta = 0.5
+        maxDelay = 200
+        maxCPU = 4
+        maxMEM = 4
         # Implement get_properties for all clients to set the properties variable
         for cid in available_cids:
             #send_time = time.time()
@@ -247,11 +251,45 @@ class SimpleClientManager(ClientManager):
             self.clients[cid].get_properties(ins=ins, timeout=None)
 
         # Collect the Performance Index of all clients
-        pi = {cid: self.clients[cid].properties['EI'] for cid in available_cids}
+        pi = {}
+        for cid in available_cids:
+            properties = self.clients[cid].properties
+            freeMEM = properties['freeMEM']
+            usedCPU = properties['usedCPU']
+            numCPU = properties['numCPU']
+            delay = properties['delay']
+            ei = self.EI(freeMEM=freeMEM, usedCPU=usedCPU, numCPU=numCPU, delay=delay,
+                         maxMEM=maxMEM, maxCPU=maxCPU, maxDelay=maxDelay,
+                         alpha=alpha, beta=beta)
+            pi[cid] = ei
 
         # List of delays sorted asceding
         eis = sorted(pi.items(), key=lambda x: x[1], reverse=True)
         # Return the best number_of_clients of delays
         clients = eis[:number_of_clients]
 
-        return clients
+        return clients, pi
+
+    def EI(self, freeMEM, usedCPU, numCPU, delay, maxMEM=8, maxCPU=8, maxDelay=200, alpha=0.5, beta=0.5):
+        # Delay
+        if delay > maxDelay:
+            delay = maxDelay
+        delay_percent = (delay/maxDelay)
+        delay_percent_inv = 1 - delay_percent
+
+        # RAM
+        # RAM in GB
+        ram_gb = freeMEM / 1e+9
+        available_ram = ram_gb / maxMEM
+
+        # CPU
+        available_cpu = (numCPU/maxCPU) * (1-usedCPU/100)
+
+        # Computational Index
+
+        ci = beta * (available_cpu) + (1-beta) * available_ram
+
+        # Evaluation Index
+        ei = alpha * ci + (1-alpha) * delay_percent_inv
+        ei = ei * 100
+        return ei
