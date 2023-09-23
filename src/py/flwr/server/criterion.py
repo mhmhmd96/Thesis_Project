@@ -39,7 +39,7 @@ class CriterionImplemented (Criterion):
             res = self.select_fit(client, client_cid,sorted_clients,Stype, ei)
             return res
         else:
-            res = self.select_evaluate(client, client_cid,sorted_clients,Stype, ei)
+            res = self.select_evaluate(client, client_cid,sorted_clients,Stype)
             return res
 
     def select_fit(self, client: ClientProxy, client_cid, sorted_clients, Stype, ei=None):

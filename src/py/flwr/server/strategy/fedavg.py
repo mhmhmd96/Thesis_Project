@@ -53,7 +53,7 @@ than or equal to the values of `min_fit_clients` and `min_evaluate_clients`.
 
 # # Connect to the controller through TCP connection to measure the overhead
 # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# s.bind(('192.168.122.107', 6665))
+# s.bind(('192.168.122.178', 6664))
 # s.listen(1)
 # conn, addr = s.accept()
 
@@ -195,9 +195,13 @@ class FedAvg(Strategy):
         """Configure the next round of training."""
         # Fit round start time
         self.start_time = time.time()
-        # if server_round==2:
-        #     msg = 'True::' + str(server_round)
-        #     conn.sendall(msg.encode())
+
+
+        # Overhead measuring start signal
+        # msg = 'True::' + str(server_round)
+        # conn.sendall(msg.encode())
+
+
         config = {}
         if self.on_fit_config_fn is not None:
             # Custom fit config function provided
@@ -309,12 +313,13 @@ class FedAvg(Strategy):
             metrics_aggregated = self.evaluate_metrics_aggregation_fn(eval_metrics)
         elif server_round == 1:  # Only log this warning once
             log(WARNING, "No evaluate_metrics_aggregation_fn provided")
-        # if server_round==3:
-        #     msg = 'False::' + str(server_round)
-        #     conn.sendall(msg.encode())
-        #     sleep(1)
 
-        # if server_round==10:
-        #     conn.close()
+        # Overhead measuring end signal
+        # msg = 'False::' + str(server_round)
+        # conn.sendall(msg.encode())
+
+
+        sleep(1)
+
         return loss_aggregated, metrics_aggregated
 

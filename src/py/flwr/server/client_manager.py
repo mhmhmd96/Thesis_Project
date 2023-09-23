@@ -14,7 +14,6 @@
 # ==============================================================================
 """Flower ClientManager."""
 
-
 import random
 import threading
 from abc import ABC, abstractmethod
@@ -30,10 +29,25 @@ import statistics
 import random
 import numpy
 
-
 number_of_clients = 6
-#0: sort, 1: hetergenous, 2: random ,3: normal (c1,c2,c5,c6,c7,c8)
+"""
+0: Delay sort
+1: Heterogeneous
+2: Random
+3: Normal (c1,c2,c5,c6,c7,c8)
+"""
 selcectType = 1
+
+# Heterogeneous Selection Parameters
+alpha = 0.35
+beta = 0.5
+overload_delay = 40
+maxMEM = 6
+maxCPU = 6
+
+#maxDelay_List = {25: 100, 40: 200, 60: 600}
+#maxDelay = maxDelay_List[overload_delay]
+
 
 class ClientManager(ABC):
     """Abstract base class for managing Flower clients."""
@@ -64,10 +78,10 @@ class ClientManager(ABC):
 
     @abstractmethod
     def sample(
-        self,
-        num_clients: int,
-        min_num_clients: Optional[int] = None,
-        criterion: Optional[Criterion] = None,
+            self,
+            num_clients: int,
+            min_num_clients: Optional[int] = None,
+            criterion: Optional[Criterion] = None,
     ) -> List[ClientProxy]:
         """Sample a number of Flower ClientProxy instances."""
 
@@ -128,11 +142,11 @@ class SimpleClientManager(ClientManager):
         return self.clients
 
     def sample(
-        self,
-        num_clients: int,
-        min_num_clients: Optional[int] = None,
-        criterion: Optional[Criterion] = None,
-        type: str = 'fit',
+            self,
+            num_clients: int,
+            min_num_clients: Optional[int] = None,
+            criterion: Optional[Criterion] = None,
+            type: str = 'fit',
 
     ) -> List[ClientProxy]:
         """Sample a number of Flower ClientProxy instances."""
@@ -146,32 +160,36 @@ class SimpleClientManager(ClientManager):
         sorted_cids = []
         print("Available Clients: ", available_cids)
         if criterion is not None:
-            if selcectType== 0:
+            if selcectType == 0:
                 sorted_cleint = self.sort_clients(available_cids, min_num_clients)
                 for i in sorted_cleint:
                     sorted_cids.append(i[0])
                 available_cids = [
-                    cid for cid in available_cids if criterion.select(self.clients[cid], cid, sorted_cids, selcectType, type)
+                    cid for cid in available_cids if
+                    criterion.select(self.clients[cid], cid, sorted_cids, selcectType, type)
                 ]
-            elif selcectType== 1:
+            elif selcectType == 1:
                 sorted_cleint, eis = self.heter_clients(available_cids, min_num_clients)
                 for i in sorted_cleint:
                     sorted_cids.append(i[0])
                 available_cids = [
-                    cid for cid in available_cids if criterion.select(self.clients[cid], cid, sorted_cids, selcectType, type, eis[cid])
+                    cid for cid in available_cids if
+                    criterion.select(self.clients[cid], cid, sorted_cids, selcectType, type, eis[cid])
                 ]
-            elif selcectType== 2:
+            elif selcectType == 2:
                 sorted_cleint = self.random_clients(available_cids, min_num_clients)
                 for i in sorted_cleint:
                     sorted_cids.append(i[0])
                 available_cids = [
-                    cid for cid in available_cids if criterion.select(self.clients[cid], cid, sorted_cids, selcectType, type)
+                    cid for cid in available_cids if
+                    criterion.select(self.clients[cid], cid, sorted_cids, selcectType, type)
                 ]
             else:
                 sorted_cleint = self.normal_clients(available_cids)
                 sorted_cids = sorted_cleint
                 available_cids = [
-                    cid for cid in available_cids if criterion.select(self.clients[cid], cid, sorted_cids, selcectType, type)
+                    cid for cid in available_cids if
+                    criterion.select(self.clients[cid], cid, sorted_cids, selcectType, type)
                 ]
 
         if num_clients > len(available_cids):
@@ -187,6 +205,7 @@ class SimpleClientManager(ClientManager):
         sampled_cids = random.sample(available_cids, num_clients)
         return [self.clients[cid] for cid in sampled_cids]
 
+    # Sort according to delay
     def sort_clients(self, available_cids, min_clients):
 
         # Implement get_properties for all clients to set the properties variable
@@ -204,7 +223,8 @@ class SimpleClientManager(ClientManager):
 
         return sorted_clients
 
-    def random_clients(self, available_cids, min_clients) :
+    # Random Selection
+    def random_clients(self, available_cids, min_clients):
 
         # Implement get_properties for all clients to set the properties variable
         for cid in available_cids:
@@ -221,7 +241,8 @@ class SimpleClientManager(ClientManager):
 
         return sorted_clients
 
-    def normal_clients(self, available_cids) :
+    # Pre-specified Clients
+    def normal_clients(self, available_cids):
 
         # Implement get_properties for all clients to set the properties variable
         for cid in available_cids:
@@ -238,17 +259,28 @@ class SimpleClientManager(ClientManager):
 
         print('sorted: ', sorted_clients)
         return sorted_clients
+
     def heter_clients(self, available_cids, min_clients):
-        alpha = 0.5
-        beta = 0.5
-        maxDelay = 200
-        maxCPU = 4
-        maxMEM = 4
+
         # Implement get_properties for all clients to set the properties variable
         for cid in available_cids:
-            #send_time = time.time()
+            # send_time = time.time()
             ins = GetPropertiesIns(config={})
             self.clients[cid].get_properties(ins=ins, timeout=None)
+
+        # Collect the delay of all clients
+        delays = {cid: self.clients[cid].properties['delay'] for cid in available_cids}
+        rams = {cid: self.clients[cid].properties['freeMEM'] for cid in available_cids}
+        delay_list = []
+        rams_list = []
+        for k, v in delays.items():
+            delay_list.append(v)
+        for k, v in rams.items():
+            rams_list.append(v)
+        maxDelay = max(delay_list)
+        maxRAM = max(rams_list) / 1e+9
+        print('Max Delay: ', maxDelay)
+        print('MAX RAM: ', maxRAM)
 
         # Collect the Performance Index of all clients
         pi = {}
@@ -259,7 +291,7 @@ class SimpleClientManager(ClientManager):
             numCPU = properties['numCPU']
             delay = properties['delay']
             ei = self.EI(freeMEM=freeMEM, usedCPU=usedCPU, numCPU=numCPU, delay=delay,
-                         maxMEM=maxMEM, maxCPU=maxCPU, maxDelay=maxDelay,
+                         maxMEM=maxRAM, maxCPU=maxCPU, maxDelay=maxDelay,
                          alpha=alpha, beta=beta)
             pi[cid] = ei
 
@@ -274,7 +306,7 @@ class SimpleClientManager(ClientManager):
         # Delay
         if delay > maxDelay:
             delay = maxDelay
-        delay_percent = (delay/maxDelay)
+        delay_percent = (delay / maxDelay)
         delay_percent_inv = 1 - delay_percent
 
         # RAM
@@ -283,13 +315,12 @@ class SimpleClientManager(ClientManager):
         available_ram = ram_gb / maxMEM
 
         # CPU
-        available_cpu = (numCPU/maxCPU) * (1-usedCPU/100)
+        available_cpu = (numCPU / maxCPU) * (1 - usedCPU / 100)
 
         # Computational Index
-
-        ci = beta * (available_cpu) + (1-beta) * available_ram
+        ci = beta * (available_cpu) + (1 - beta) * available_ram
 
         # Evaluation Index
-        ei = alpha * ci + (1-alpha) * delay_percent_inv
+        ei = alpha * ci + (1 - alpha) * delay_percent_inv
         ei = ei * 100
         return ei

@@ -33,6 +33,7 @@ def get_dense_model():
         # Dense(units=64, activation="relu"),
         Dense(units=10, activation="softmax")
     ])
+
     model.compile(optimizer=Adamax(learning_rate=0.0003), loss='categorical_crossentropy', metrics=['accuracy'])
     #model.summary()
     return model
@@ -62,9 +63,9 @@ def main() -> None:
         selection_strategy=use_selection_strategy,
         fraction_fit=0.75,
         fraction_evaluate=0.5,
-        min_fit_clients=1,
-        min_evaluate_clients=1,
-        min_available_clients=1,
+        min_fit_clients=6,
+        min_evaluate_clients=4,
+        min_available_clients=8,
         evaluate_fn=get_evaluate_fn(model),
         on_fit_config_fn=fit_config,
         on_evaluate_config_fn=evaluate_config,
@@ -73,7 +74,7 @@ def main() -> None:
 
     # Start Flower server (SSL-enabled) for four rounds of federated learning
     fl.server.start_server(
-        server_address="192.168.122.178:5555",
+        server_address="192.168.122.178:5040",
         config=fl.server.ServerConfig(num_rounds=25,),
         strategy=strategy,
     )
