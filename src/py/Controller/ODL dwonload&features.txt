@@ -1,0 +1,17 @@
+Download ODL Beryllium-SR3 0.4.3:
+https://nexus.opendaylight.org/content/groups/public/org/opendaylight/integration/distribution-karaf/0.4.3-Beryllium-SR3/
+
+
+
+feature:install odl-restconf-all odl-openflowplugin-all odl-l2switch-all odl-mdsal-all odl-yangtools-common odl-dlux-all odl-dlux-core
+
+
+Normal Java:
+apt install openjdk-8-jdk
+export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+
+
+Install Oracle:
+sudo add-apt-repository ppa:ts.sch.gr/ppa
+sudo apt-get update
+sudo apt-get install oracle-java8-installer
