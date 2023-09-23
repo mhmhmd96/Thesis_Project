@@ -21,7 +21,7 @@ cd "$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"/../../../
 # Build `.whl` from current state
 ./dev/build.sh
 
-# Execute `run.py`
+# Execute `run_client.py`
 python -m flwr_experimental.baseline.run \
   --adapter="docker" \
   --baseline="tf_fashion_mnist" \
